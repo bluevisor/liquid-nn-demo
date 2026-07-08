@@ -10,6 +10,8 @@ browser**, no server-side inference.
 Try it live: [draw a digit](https://liquid-nn-demo.vercel.app) or read the
 [illustrated explainer](https://liquid-nn-demo.vercel.app/how_liquid_neurons_work.html).
 
+[![The digit recognizer reading a hand-drawn 7 — showing the row-by-row scan, the 256-neuron hidden state over time, the per-neuron liquid gates, and the belief trajectory](screenshot.png)](https://liquid-nn-demo.vercel.app)
+
 The one idea behind a liquid neuron: it's a leaky integrator whose *reaction speed* is itself a
 learned function of the input, so its effective time constant flows with the data.
 
