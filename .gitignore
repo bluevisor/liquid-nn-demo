@@ -12,3 +12,4 @@ venv/
 
 # os
 .DS_Store
+.vercel
