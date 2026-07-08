@@ -1,9 +1,14 @@
 # Liquid Neural Network — from scratch
 
+### ▶ Live demo: **[liquid-nn-demo.vercel.app](https://liquid-nn-demo.vercel.app)**
+
 A [Liquid Time-Constant (LTC) network](https://arxiv.org/abs/2006.04439) (Hasani et al., AAAI 2021)
 implemented from scratch in PyTorch, with a set of self-contained web pages that make the idea
 tangible — including a digit recognizer that runs the trained model's ODE solver **entirely in your
 browser**, no server-side inference.
+
+Try it live: [draw a digit](https://liquid-nn-demo.vercel.app) or read the
+[illustrated explainer](https://liquid-nn-demo.vercel.app/how_liquid_neurons_work.html).
 
 The one idea behind a liquid neuron: it's a leaky integrator whose *reaction speed* is itself a
 learned function of the input, so its effective time constant flows with the data.
