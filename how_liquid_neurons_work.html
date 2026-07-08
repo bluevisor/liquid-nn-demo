@@ -1,0 +1,656 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{
+    color-scheme: light dark;
+    --bg:#eef2f1; --surface:#ffffff; --surface2:#f5f8f7;
+    --line:#d4dedb; --line2:#e3ebe9;
+    --ink:#13201e; --body:#2b3a38; --muted:#5f716e; --faint:#93a3a0;
+    --liquid:#0b8f83;   /* state / the liquid   */
+    --flow:#d8641f;     /* input / energy       */
+    --tau:#6b4ff0;      /* effective time const */
+    --liquid-fill:rgba(11,143,131,.13);
+    --flow-fill:rgba(216,100,31,.12);
+    --shadow:0 1px 2px rgba(19,32,30,.05), 0 8px 30px rgba(19,32,30,.06);
+    --serif:Georgia,"Iowan Old Style","Times New Roman",serif;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,sans-serif;
+    --mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#081312; --surface:#0e1c1a; --surface2:#122321;
+      --line:#213331; --line2:#182c2a;
+      --ink:#e4efec; --body:#c3d3d0; --muted:#8ba3a0; --faint:#5f7370;
+      --liquid:#2dd4bf; --flow:#ff9a52; --tau:#a488ff;
+      --liquid-fill:rgba(45,212,191,.14);
+      --flow-fill:rgba(255,154,82,.12);
+      --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 34px rgba(0,0,0,.4);
+    }
+  }
+  :root[data-theme="light"]{
+    --bg:#eef2f1; --surface:#ffffff; --surface2:#f5f8f7;
+    --line:#d4dedb; --line2:#e3ebe9;
+    --ink:#13201e; --body:#2b3a38; --muted:#5f716e; --faint:#93a3a0;
+    --liquid:#0b8f83; --flow:#d8641f; --tau:#6b4ff0;
+    --liquid-fill:rgba(11,143,131,.13); --flow-fill:rgba(216,100,31,.12);
+    --shadow:0 1px 2px rgba(19,32,30,.05), 0 8px 30px rgba(19,32,30,.06);
+  }
+  :root[data-theme="dark"]{
+    --bg:#081312; --surface:#0e1c1a; --surface2:#122321;
+    --line:#213331; --line2:#182c2a;
+    --ink:#e4efec; --body:#c3d3d0; --muted:#8ba3a0; --faint:#5f7370;
+    --liquid:#2dd4bf; --flow:#ff9a52; --tau:#a488ff;
+    --liquid-fill:rgba(45,212,191,.14); --flow-fill:rgba(255,154,82,.12);
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 34px rgba(0,0,0,.4);
+  }
+
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--body);
+    font-family:var(--serif);font-size:18px;line-height:1.7;
+    -webkit-font-smoothing:antialiased;}
+  .sans{font-family:var(--sans)}
+  .mono{font-family:var(--mono)}
+
+  .col{max-width:720px;margin:0 auto;padding:0 24px;}
+  .wide{max-width:1000px;margin:0 auto;padding:0 24px;}
+
+  /* ---------- hero ---------- */
+  header.hero{border-bottom:1px solid var(--line);
+    background:
+      radial-gradient(120% 90% at 80% -10%, var(--liquid-fill), transparent 60%),
+      radial-gradient(90% 80% at -5% 10%, var(--flow-fill), transparent 55%);}
+  .hero .col{padding-top:64px;padding-bottom:40px;}
+  .eyebrow{font-family:var(--sans);font-size:12px;font-weight:600;
+    letter-spacing:.16em;text-transform:uppercase;color:var(--liquid);
+    margin:0 0 20px;}
+  h1{font-family:var(--serif);font-weight:600;color:var(--ink);
+    font-size:clamp(34px,6vw,52px);line-height:1.08;letter-spacing:-.015em;
+    text-wrap:balance;margin:0 0 20px;}
+  h1 em{font-style:italic;color:var(--liquid)}
+  .lede{font-size:20px;color:var(--muted);max-width:36em;margin:0;line-height:1.6}
+  .lede b{color:var(--body);font-weight:600}
+
+  .byline{font-family:var(--sans);font-size:12.5px;color:var(--faint);
+    margin-top:28px;display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center}
+  .byline .tag{border:1px solid var(--line);border-radius:100px;
+    padding:3px 11px;color:var(--muted)}
+
+  /* ---------- prose ---------- */
+  section{padding:52px 0}
+  section + section{border-top:1px solid var(--line2)}
+  h2{font-family:var(--serif);font-weight:600;color:var(--ink);
+    font-size:clamp(24px,3.6vw,32px);line-height:1.2;letter-spacing:-.01em;
+    text-wrap:balance;margin:0 0 6px}
+  .kicker{font-family:var(--sans);font-size:12px;font-weight:600;
+    letter-spacing:.14em;text-transform:uppercase;color:var(--flow);
+    margin:0 0 14px}
+  h3{font-family:var(--sans);font-weight:650;color:var(--ink);
+    font-size:15px;letter-spacing:.01em;margin:34px 0 4px}
+  p{margin:0 0 18px}
+  p:last-child{margin-bottom:0}
+  .col a{color:var(--liquid)}
+  strong{color:var(--ink);font-weight:600}
+  .lq{color:var(--liquid);font-weight:600}
+  .fl{color:var(--flow);font-weight:600}
+  .tu{color:var(--tau);font-weight:600}
+  .drop::first-letter{font-size:0}
+
+  .aside{font-family:var(--sans);font-size:14.5px;line-height:1.6;
+    color:var(--muted);border-left:2px solid var(--line);
+    padding:2px 0 2px 18px;margin:24px 0}
+  .col a.demo-cta{display:inline-block;margin-top:14px;font-family:var(--sans);
+    font-size:15px;font-weight:600;color:var(--surface);background:var(--liquid);
+    text-decoration:none;padding:12px 22px;border-radius:12px;box-shadow:var(--shadow);
+    transition:filter .12s,transform .12s}
+  .col a.demo-cta:hover{filter:brightness(1.06);transform:translateY(-1px);color:var(--surface)}
+  .col a.demo-cta:focus-visible{outline:2px solid var(--liquid);outline-offset:3px}
+
+  /* ---------- equation cards ---------- */
+  .eq{background:var(--surface);border:1px solid var(--line);border-radius:14px;
+    box-shadow:var(--shadow);padding:26px 28px;margin:26px 0;text-align:center}
+  .eq .expr{font-family:var(--mono);font-size:clamp(17px,2.6vw,22px);
+    color:var(--ink);line-height:1;display:flex;flex-wrap:wrap;gap:.35em;
+    align-items:center;justify-content:center;letter-spacing:.02em}
+  .eq .cap{font-family:var(--sans);font-size:12.5px;color:var(--muted);
+    margin-top:16px;line-height:1.55;max-width:46em;
+    margin-left:auto;margin-right:auto}
+  .frac{display:inline-flex;flex-direction:column;text-align:center;
+    vertical-align:middle;line-height:1.1}
+  .frac .num{border-bottom:1.5px solid currentColor;padding:0 .5em .12em}
+  .frac .den{padding:.12em .5em 0}
+  .hl-f{color:var(--flow)}
+  .hl-tau{color:var(--tau)}
+  .hl-lq{color:var(--liquid)}
+  .brace{color:var(--faint)}
+
+  /* ---------- instrument bench ---------- */
+  .bench{background:var(--surface);border:1px solid var(--line);
+    border-radius:18px;box-shadow:var(--shadow);overflow:hidden;margin:8px 0}
+  .bench-head{display:flex;flex-wrap:wrap;justify-content:space-between;
+    align-items:baseline;gap:10px;padding:18px 22px 0}
+  .bench-head .t{font-family:var(--sans);font-weight:650;font-size:14px;
+    color:var(--ink)}
+  .bench-head .s{font-family:var(--sans);font-size:12px;color:var(--faint)}
+  .plotwrap{padding:12px 14px 4px}
+  canvas{display:block;width:100%;border-radius:8px}
+
+  .readouts{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;
+    background:var(--line2);border-top:1px solid var(--line);
+    border-bottom:1px solid var(--line);margin-top:8px}
+  .ro{background:var(--surface);padding:14px 18px}
+  .ro .lab{font-family:var(--sans);font-size:10.5px;font-weight:600;
+    letter-spacing:.1em;text-transform:uppercase;color:var(--muted);
+    display:flex;align-items:center;gap:6px}
+  .ro .num{font-family:var(--mono);font-size:26px;color:var(--ink);
+    margin-top:4px;font-variant-numeric:tabular-nums;line-height:1}
+  .ro .num small{font-size:13px;color:var(--faint)}
+  .swatch{width:9px;height:9px;border-radius:2px;display:inline-block}
+
+  .controls{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;
+    padding:16px 22px 20px}
+  .ctl{display:flex;flex-direction:column;gap:5px}
+  .ctl label{font-family:var(--sans);font-size:11px;font-weight:600;
+    letter-spacing:.06em;text-transform:uppercase;color:var(--muted);
+    display:flex;justify-content:space-between;gap:14px;min-width:150px}
+  .ctl label b{font-family:var(--mono);color:var(--ink);font-weight:500;
+    font-variant-numeric:tabular-nums;text-transform:none;letter-spacing:0}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:170px;
+    height:4px;border-radius:3px;background:var(--line);outline:none}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
+    width:16px;height:16px;border-radius:50%;background:var(--liquid);
+    border:2px solid var(--surface);box-shadow:0 1px 3px rgba(0,0,0,.25);cursor:pointer}
+  input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;
+    background:var(--liquid);border:2px solid var(--surface);cursor:pointer}
+  .btns{display:flex;gap:9px;flex-wrap:wrap;margin-left:auto}
+  button{font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;
+    background:var(--surface2);color:var(--ink);border:1px solid var(--line);
+    border-radius:9px;padding:9px 15px;transition:.13s}
+  button:hover{border-color:var(--muted)}
+  button:focus-visible{outline:2px solid var(--liquid);outline-offset:2px}
+  button.flow{background:var(--flow);border-color:var(--flow);color:#fff}
+  button.flow:hover{filter:brightness(1.06)}
+  button.ghost[aria-pressed="true"]{background:var(--tau);border-color:var(--tau);color:#fff}
+
+  .legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-family:var(--sans);
+    font-size:12px;color:var(--muted);padding:0 22px 4px}
+  .legend .k{display:inline-flex;align-items:center;gap:7px}
+  .legend .line{width:16px;height:0;border-top:2.5px solid}
+  .legend .dash{border-top-style:dashed}
+
+  /* ---------- steps ---------- */
+  .steps{display:grid;gap:14px;margin:22px 0}
+  @media(min-width:620px){.steps{grid-template-columns:1fr 1fr}}
+  .step{background:var(--surface);border:1px solid var(--line);border-radius:13px;
+    padding:18px 20px;box-shadow:var(--shadow)}
+  .step .n{font-family:var(--mono);font-size:12px;color:var(--liquid);
+    font-weight:600}
+  .step h4{font-family:var(--sans);font-size:14.5px;font-weight:650;color:var(--ink);
+    margin:8px 0 6px}
+  .step p{font-family:var(--sans);font-size:13.5px;line-height:1.55;
+    color:var(--muted);margin:0}
+
+  footer{border-top:1px solid var(--line);padding:34px 0 60px;color:var(--faint);
+    font-family:var(--sans);font-size:13px}
+  footer .col{display:flex;flex-direction:column;gap:8px}
+  footer a{color:var(--muted)}
+  footer code{font-family:var(--mono);font-size:12px;color:var(--body)}
+
+  .theme-btn{position:fixed;top:14px;right:14px;z-index:20;width:38px;height:38px;
+    border-radius:50%;display:grid;place-items:center;padding:0;font-size:16px;
+    background:var(--surface);box-shadow:var(--shadow)}
+
+  @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
+</style>
+
+<button class="theme-btn" id="themeBtn" aria-label="Toggle light/dark theme" title="Toggle theme">◐</button>
+
+<header class="hero">
+  <div class="col">
+    <p class="eyebrow">Neural network internals · explained</p>
+    <h1>How a <em>liquid</em> neuron works</h1>
+    <p class="lede">An ordinary neuron reacts at one fixed speed. A liquid neuron
+      changes <b>how fast it reacts</b> depending on what it's looking at — it
+      speeds up for a sharp signal and coasts through a slow one. Here's the whole
+      idea, from a leaky bucket up to the equation, with a bench you can drive.</p>
+    <div class="byline sans">
+      <span class="tag">Liquid Time-Constant networks</span>
+      <span class="tag">Hasani et&nbsp;al., AAAI 2021</span>
+      <span>·</span>
+      <span>one neuron, no libraries</span>
+    </div>
+  </div>
+</header>
+
+<!-- ============================ 1 · INTUITION ============================ -->
+<section>
+  <div class="col">
+    <p class="kicker">Start here</p>
+    <h2>A neuron is a leaky bucket</h2>
+    <p>Before anything liquid, picture the plainest possible neuron as a bucket of
+      water. Input <span class="fl">pours in</span>; the bucket also has a hole, so
+      the level always <strong>leaks back toward empty</strong>. Its state
+      <span class="lq">x</span> is just the water level, and it obeys one line of
+      calculus — the <em>leaky integrator</em>:</p>
+
+    <div class="eq">
+      <div class="expr">
+        <span class="frac"><span class="num">dx</span><span class="den">dt</span></span>
+        <span>=</span>
+        <span>−</span>
+        <span class="frac"><span class="num">1</span><span class="den"><span class="hl-tau">τ</span></span></span>
+        <span class="hl-lq">x</span>
+        <span>+</span>
+        <span class="hl-f">input</span>
+      </div>
+      <p class="cap">The <span class="hl-tau">τ</span> (“tau”) is the
+        <b>time constant</b> — how many seconds the bucket takes to react. Big
+        hole → small τ → snappy. Pinhole → big τ → sluggish. In a normal network
+        τ is <b>baked in at training time and never moves.</b></p>
+    </div>
+
+    <p>That single number is the neuron's whole sense of time, and it's the
+      problem. Pick a small τ and the neuron twitches at every bit of noise. Pick a
+      large τ and it's calm but misses anything sudden. <strong>One fixed reaction
+      speed can't be both careful and quick.</strong></p>
+  </div>
+</section>
+
+<!-- ============================ 2 · THE LEAP ============================ -->
+<section>
+  <div class="col">
+    <p class="kicker">The one idea</p>
+    <h2>What if the reaction speed could move?</h2>
+    <p>Liquid neurons make one change, and everything follows from it: let the
+      leak rate <strong>depend on the input itself.</strong> A small learned gate
+      <span class="fl">f(u,&nbsp;x)</span> — a single sigmoid — opens the hole
+      wider when the signal warrants it and closes it when things are quiet:</p>
+
+    <div class="eq">
+      <div class="expr">
+        <span class="frac"><span class="num">dx</span><span class="den">dt</span></span>
+        <span>=</span>
+        <span>−</span>
+        <span class="brace">[</span>
+        <span class="frac"><span class="num">1</span><span class="den"><span class="hl-tau">τ</span></span></span>
+        <span>+</span>
+        <span class="hl-f">f(u,x)</span>
+        <span class="brace">]</span>
+        <span class="hl-lq">x</span>
+        <span>+</span>
+        <span class="hl-f">f(u,x)</span>
+        <span>·</span>
+        <span>A</span>
+      </div>
+      <p class="cap">The gate <span class="hl-f">f</span> appears
+        <b>twice</b>: it sets how fast the state decays <i>and</i> how hard it's
+        pulled toward the target <b>A</b>. Because <span class="hl-f">f</span>
+        rides on the live input, the neuron's clock is now a moving part.</p>
+    </div>
+
+    <p>Group the two decay terms and you can read off the neuron's
+      <em>real</em> reaction speed at any instant — the quantity that gives these
+      networks their name:</p>
+
+    <div class="eq">
+      <div class="expr">
+        <span class="hl-tau">τ<sub>eff</sub></span>
+        <span>=</span>
+        <span class="frac">
+          <span class="num">1</span>
+          <span class="den">1 / <span class="hl-tau">τ</span> + <span class="hl-f">f(u,x)</span></span>
+        </span>
+      </div>
+      <p class="cap">The <b>effective time constant.</b> When the gate opens
+        (<span class="hl-f">f</span> large), the denominator grows and
+        <span class="hl-tau">τ<sub>eff</sub></span> <b>shrinks</b> — the neuron
+        reacts faster. When the input is dull, <span class="hl-f">f</span>→0 and it
+        relaxes back to its slow baseline <span class="hl-tau">τ</span>. It is
+        “liquid” because this number is never fixed; it flows with the data.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ 3 · THE BENCH ============================ -->
+<section>
+  <div class="wide">
+    <p class="kicker" style="text-align:center">Drive it yourself</p>
+    <h2 style="text-align:center">One liquid neuron, live</h2>
+    <p class="col" style="text-align:center;color:var(--muted);font-family:var(--sans);font-size:15px;margin-bottom:26px">
+      Watch the same neuron meet a <span class="fl">weak</span> pulse and then a
+      <span class="fl">strong</span> one. The <span class="tu">violet</span> trace is
+      τ<sub>eff</sub> — notice it collapse the moment a strong signal arrives, and the
+      <span class="lq">state</span> snap up to meet it. Toggle the ghost to see a
+      frozen-τ neuron try to keep up.</p>
+
+    <div class="bench">
+      <div class="bench-head">
+        <span class="t sans">Neuron bench</span>
+        <span class="s sans">semi-implicit Euler · gate f = σ(3·u − 2) · target A = 1</span>
+      </div>
+
+      <div class="legend">
+        <span class="k"><span class="line" style="border-color:var(--flow)"></span>input&nbsp;u(t)</span>
+        <span class="k"><span class="line" style="border-color:var(--liquid)"></span>state&nbsp;x(t)</span>
+        <span class="k"><span class="line" style="border-color:var(--tau)"></span>τ<sub>eff</sub>(t)</span>
+        <span class="k"><span class="line dash" style="border-color:var(--muted)"></span>frozen-τ ghost</span>
+      </div>
+
+      <div class="plotwrap"><canvas id="bench" height="360"></canvas></div>
+
+      <div class="readouts">
+        <div class="ro">
+          <div class="lab"><span class="swatch" style="background:var(--flow)"></span>input now</div>
+          <div class="num" id="roU">0.00</div>
+        </div>
+        <div class="ro">
+          <div class="lab"><span class="swatch" style="background:var(--liquid)"></span>state x</div>
+          <div class="num" id="roX">0.00</div>
+        </div>
+        <div class="ro">
+          <div class="lab"><span class="swatch" style="background:var(--tau)"></span>τ<sub>eff</sub></div>
+          <div class="num" id="roTau">0.00<small>&nbsp;s</small></div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <div class="ctl">
+          <label>base τ<b id="vTau">2.0 s</b></label>
+          <input type="range" id="sTau" min="0.5" max="5" step="0.1" value="2">
+        </div>
+        <div class="ctl">
+          <label>pulse strength<b id="vAmp">2.5</b></label>
+          <input type="range" id="sAmp" min="0.2" max="4" step="0.1" value="2.5">
+        </div>
+        <div class="btns">
+          <button class="flow" id="bInject">Inject pulse</button>
+          <button class="ghost" id="bGhost" aria-pressed="false">Frozen-τ ghost</button>
+          <button id="bAuto" aria-pressed="true">Auto demo: on</button>
+        </div>
+      </div>
+    </div>
+
+    <p class="col" style="margin-top:26px">The ghost is the whole argument in one
+      picture. It's the <em>same</em> neuron with its clock nailed to the baseline
+      τ — so it lags every rise and lingers after every fall. The liquid neuron
+      borrows a fast clock exactly when it needs one, then gives it back.</p>
+  </div>
+</section>
+
+<!-- ============================ 4 · SOLVER ============================ -->
+<section>
+  <div class="col">
+    <p class="kicker">Under the hood</p>
+    <h2>How you actually compute it</h2>
+    <p>There's no closed-form solution — the time constant depends on the state you
+      haven't computed yet. So you step the ODE forward numerically. The trick that
+      makes it stable is a <strong>semi-implicit</strong> update: evaluate the gate
+      at the current state, but solve for the next state on both sides of the
+      equation. Rearranging the discretized ODE gives a clean division:</p>
+
+    <div class="eq">
+      <div class="expr" style="font-size:clamp(15px,2.4vw,20px)">
+        <span class="hl-lq">x<sub>next</sub></span>
+        <span>=</span>
+        <span class="frac">
+          <span class="num"><span class="hl-lq">x</span> + Δt · <span class="hl-f">f</span> · A</span>
+          <span class="den">1 + Δt · (1/<span class="hl-tau">τ</span> + <span class="hl-f">f</span>)</span>
+        </span>
+      </div>
+      <p class="cap">The denominator is always &gt; 1, so the state can never blow
+        up no matter how big the step — the update is unconditionally stable. In
+        practice you take a few of these sub-steps per observation to keep accuracy
+        high.</p>
+    </div>
+
+    <p>Two properties fall out of this for free, and they're the reason anyone
+      reaches for a liquid neuron in the first place:</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="n sans">Δt is an input</div>
+        <h4 class="sans">Irregular time is native</h4>
+        <p>The gap between samples, Δt, sits right in the update. Feed data that
+          arrives at uneven intervals — sensors, medical records, event logs — and
+          the neuron integrates over the real elapsed time instead of pretending
+          every step is equal.</p>
+      </div>
+      <div class="step">
+        <div class="n sans">τ moves, not the weights</div>
+        <h4 class="sans">It generalizes across timescales</h4>
+        <p>Because reaction speed is computed on the fly, a liquid net trained at
+          one sampling rate still tracks a signal sampled 2–3× slower — a regime it
+          never saw. A fixed-clock RNN, given the same test, drifts.</p>
+      </div>
+    </div>
+
+    <p class="aside sans">In your <code class="mono">liquid_demo.py</code>, the LTC
+      network beat a same-size GRU on exactly this test: trained on Δt of
+      0.10–0.30&nbsp;s, then evaluated at an unseen 0.45–0.75&nbsp;s. That's the
+      generalization claim on the right, made concrete — see
+      <code class="mono">liquid_vs_gru.png</code>.</p>
+  </div>
+</section>
+
+<!-- ============================ 5 · RECAP ============================ -->
+<section>
+  <div class="col">
+    <p class="kicker">In one breath</p>
+    <h2>The whole thing, restated</h2>
+    <p>A liquid neuron is a leaky integrator whose <span class="tu">leak rate is
+      itself a learned function of the input.</span> That one move turns a fixed
+      time constant into a <span class="tu">τ<sub>eff</sub></span> that flows with
+      the data: the neuron speeds up for sharp signals, slows for calm ones, handles
+      irregular sampling because Δt is baked into the solver, and generalizes to
+      timescales it never trained on — all with a handful of parameters per
+      neuron.</p>
+    <p>Everything else in a Liquid Time-Constant network is just wiring many of
+      these neurons together and reading them out. The idea itself is the two boxed
+      equations above, and you just watched it run.</p>
+    <a class="demo-cta" href="index.html">See 256 of them read a digit — try the live demo&nbsp;→</a>
+  </div>
+</section>
+
+<footer>
+  <div class="col">
+    <div>Companion to the <a href="index.html">live digit recognizer</a> and <code>liquid_lab.html</code> — the LTC neuron built from scratch, no ML libraries in this page.</div>
+    <div>Model: Hasani, Lechner, Amini, Rus, Grosu — <a href="#">“Liquid Time-constant Networks,” AAAI 2021</a>.</div>
+  </div>
+</footer>
+
+<script>
+(() => {
+  "use strict";
+  const $ = id => document.getElementById(id);
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* ---------- theme toggle ---------- */
+  const root = document.documentElement;
+  $("themeBtn").addEventListener("click", () => {
+    const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+    const cur = root.getAttribute("data-theme") || (dark ? "dark" : "light");
+    root.setAttribute("data-theme", cur === "dark" ? "light" : "dark");
+  });
+
+  /* ---------- the neuron ---------- */
+  // gate f = sigmoid(wu*u + b);  dx/dt = -(1/tau + f)x + f*A  (semi-implicit)
+  const WU = 3.0, B = -2.0, A = 1.0, SUB = 4;
+  const sig = z => 1 / (1 + Math.exp(-z));
+  const gate = u => sig(WU * u + B);
+  const tauEff = (u, tau) => 1 / (1 / tau + gate(u));
+  function step(x, u, dt, tau) {
+    const h = dt / SUB, f = gate(u);
+    for (let i = 0; i < SUB; i++) x = (x + h * f * A) / (1 + h * (1 / tau + f));
+    return x;
+  }
+
+  /* ---------- controls / state ---------- */
+  let tau = 2.0, amp = 2.5, ghost = false, auto = true;
+  let manualPulse = 0;                 // remaining seconds of a manual pulse
+  const DT = 0.02;                     // sim seconds per frame
+  const WINDOW = 12;                   // seconds shown
+  const N = Math.round(WINDOW / DT);
+  const hist = { u: [], x: [], g: [], tau: [] };
+  let x = 0, xg = 0, t = 0;
+
+  // auto-demo input: rest, weak pulse, rest, strong pulse, repeat (period 12s)
+  function autoU(tt) {
+    const p = tt % 12;
+    if (p > 2 && p < 4.5) return 0.7;
+    if (p > 7 && p < 9.5) return amp;
+    return 0;
+  }
+  function curU() {
+    let u = auto ? autoU(t) : 0;
+    if (manualPulse > 0) { u = amp; manualPulse -= DT; }
+    return u;
+  }
+
+  const $vTau = $("vTau"), $vAmp = $("vAmp"),
+        $roU = $("roU"), $roX = $("roX"), $roTau = $("roTau");
+  $("sTau").addEventListener("input", e => { tau = +e.target.value; $vTau.textContent = tau.toFixed(1) + " s"; });
+  $("sAmp").addEventListener("input", e => { amp = +e.target.value; $vAmp.textContent = amp.toFixed(1); });
+  $("bInject").addEventListener("click", () => { manualPulse = 1.2; if (!auto){/*allow*/} });
+  $("bGhost").addEventListener("click", e => {
+    ghost = !ghost; e.currentTarget.setAttribute("aria-pressed", ghost);
+  });
+  $("bAuto").addEventListener("click", e => {
+    auto = !auto; e.currentTarget.setAttribute("aria-pressed", auto);
+    e.currentTarget.textContent = "Auto demo: " + (auto ? "on" : "off");
+  });
+
+  /* ---------- canvas ---------- */
+  const cv = $("bench"), ctx = cv.getContext("2d");
+  let W = 0, H = 0, dpr = 1;
+  function resize() {
+    dpr = Math.min(devicePixelRatio || 1, 2);
+    W = cv.clientWidth; H = 360;
+    cv.width = W * dpr; cv.height = H * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  addEventListener("resize", resize);
+
+  const css = v => getComputedStyle(root).getPropertyValue(v).trim();
+
+  // three stacked lanes: input, state, tau_eff
+  function draw() {
+    const cLine = css("--line2"), cInk = css("--ink"), cMut = css("--muted"),
+          cLq = css("--liquid"), cFl = css("--flow"), cTu = css("--tau"),
+          cLqFill = css("--liquid-fill"), cFlFill = css("--flow-fill"),
+          cSurf = css("--surface"), cFaint = css("--faint");
+    ctx.clearRect(0, 0, W, H);
+
+    const padL = 54, padR = 14, padT = 12, padB = 22;
+    const plotW = W - padL - padR;
+    const laneGap = 14;
+    const laneH = (H - padT - padB - 2 * laneGap) / 3;
+    const lanes = [0, 1, 2].map(i => padT + i * (laneH + laneGap));
+    const xAt = k => padL + (k / (N - 1)) * plotW;
+
+    // ranges
+    const uMax = Math.max(1, amp) * 1.1;
+    const tauMax = tau * 1.15;
+
+    const lane = (top, label, color) => {
+      // frame
+      ctx.strokeStyle = cLine; ctx.lineWidth = 1;
+      ctx.strokeRect(padL, top, plotW, laneH);
+      // baseline
+      ctx.beginPath(); ctx.moveTo(padL, top + laneH); ctx.lineTo(padL + plotW, top + laneH);
+      ctx.strokeStyle = cLine; ctx.stroke();
+      // label
+      ctx.fillStyle = color; ctx.font = "600 11px -apple-system,system-ui,sans-serif";
+      ctx.textAlign = "right"; ctx.textBaseline = "top";
+      ctx.fillText(label, padL - 8, top + 2);
+    };
+    const plot = (top, data, dmin, dmax, color, fill, dashed) => {
+      const y = v => top + laneH - ((v - dmin) / (dmax - dmin)) * laneH;
+      if (fill) {
+        ctx.beginPath(); ctx.moveTo(xAt(0), top + laneH);
+        data.forEach((v, k) => ctx.lineTo(xAt(k), y(v)));
+        ctx.lineTo(xAt(data.length - 1), top + laneH); ctx.closePath();
+        ctx.fillStyle = fill; ctx.fill();
+      }
+      ctx.beginPath();
+      data.forEach((v, k) => k ? ctx.lineTo(xAt(k), y(v)) : ctx.moveTo(xAt(k), y(v)));
+      ctx.strokeStyle = color; ctx.lineWidth = 2.2;
+      ctx.setLineDash(dashed || []); ctx.lineJoin = "round";
+      ctx.stroke(); ctx.setLineDash([]);
+      // endpoint dot
+      if (data.length) {
+        const k = data.length - 1;
+        ctx.beginPath(); ctx.arc(xAt(k), y(data[k]), 3.4, 0, 7);
+        ctx.fillStyle = color; ctx.fill();
+        ctx.strokeStyle = cSurf; ctx.lineWidth = 1.5; ctx.stroke();
+      }
+      return y;
+    };
+    const tick = (top, val, dmin, dmax, txt) => {
+      const yy = top + laneH - ((val - dmin) / (dmax - dmin)) * laneH;
+      ctx.fillStyle = cFaint; ctx.font = "10px ui-monospace,monospace";
+      ctx.textAlign = "right"; ctx.textBaseline = "middle";
+      ctx.fillText(txt, padL - 8, yy);
+    };
+
+    // lane 0 — input
+    lane(lanes[0], "input u", cFl);
+    plot(lanes[0], hist.u, 0, uMax, cFl, cFlFill);
+    tick(lanes[0], uMax, 0, uMax, uMax.toFixed(1));
+
+    // lane 1 — state x (range slightly above A)
+    lane(lanes[1], "state x", cLq);
+    if (ghost) plot(lanes[1], hist.g, 0, 1.15, cMut, null, [5, 5]);
+    plot(lanes[1], hist.x, 0, 1.15, cLq, cLqFill);
+    tick(lanes[1], 1, 0, 1.15, "1.0");
+
+    // lane 2 — tau_eff
+    lane(lanes[2], "τ eff", cTu);
+    plot(lanes[2], hist.tau, 0, tauMax, cTu, null);
+    tick(lanes[2], tau, 0, tauMax, tau.toFixed(1) + "s");
+    tick(lanes[2], 0, 0, tauMax, "0");
+  }
+
+  /* ---------- loop ---------- */
+  function tickSim() {
+    const u = curU();
+    x = step(x, u, DT, tau);
+    t += DT;
+
+    hist.u.push(u); hist.x.push(x); hist.tau.push(tauEff(u, tau));
+    ghostStep(u);   // baseline neuron with its gate frozen at rest
+    if (hist.u.length > N) { hist.u.shift(); hist.x.shift(); hist.tau.shift(); hist.g.shift(); }
+
+    $roU.textContent = u.toFixed(2);
+    $roX.textContent = x.toFixed(2);
+    $roTau.innerHTML = tauEff(u, tau).toFixed(2) + '<small>&nbsp;s</small>';
+    draw();
+    raf = requestAnimationFrame(loop);
+  }
+
+  // ghost neuron: same equation but gate frozen at its resting value f0=gate(0)
+  let gx = 0;
+  const F0 = gate(0);
+  function ghostStep(u) {
+    const h = DT / SUB;
+    for (let i = 0; i < SUB; i++) gx = (gx + h * F0 * A) / (1 + h * (1 / tau + F0));
+    hist.g.push(gx);
+  }
+
+  let raf;
+  function loop() { tickSim(); }
+
+  // prime history so the plot starts full
+  function init() {
+    resize();
+    for (let k = 0; k < N; k++) {
+      const u = autoU(t);
+      x = step(x, u, DT, tau);
+      ghostStep(u);
+      hist.u.push(u); hist.x.push(x); hist.tau.push(tauEff(u, tau));
+      t += DT;
+    }
+    if (reduce) { draw(); return; }       // static frame for reduced-motion
+    raf = requestAnimationFrame(loop);
+  }
+  init();
+})();
+</script>

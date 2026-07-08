@@ -1,0 +1,557 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Liquid Neural Network Lab</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#151b24; --panel2:#1b232e; --line:#26303c;
+    --ink:#e6edf3; --muted:#8b98a9; --faint:#5b6675;
+    --blue:#4f8cff;   /* state  */
+    --orange:#ff8a3d; /* gate f */
+    --violet:#b98cff; /* tau_eff */
+    --green:#4ec9a8;  /* readout / truth */
+    --hot:#ff5d6c;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;}
+  .mono{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace;}
+  a{color:var(--blue)}
+  .wrap{max-width:1500px;margin:0 auto;padding:18px 20px 60px;}
+
+  header{display:flex;flex-wrap:wrap;align-items:flex-start;gap:18px;
+    justify-content:space-between;border-bottom:1px solid var(--line);
+    padding-bottom:14px;margin-bottom:16px;}
+  h1{font-size:20px;margin:0;font-weight:650;letter-spacing:.2px;}
+  .sub{color:var(--muted);font-size:12.5px;margin-top:4px;max-width:560px;line-height:1.5;}
+
+  .eq{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    padding:12px 16px;font-size:15px;min-width:320px;}
+  .eq .row{white-space:nowrap;letter-spacing:.3px}
+  .eq .lbl{font-size:10.5px;color:var(--faint);text-transform:uppercase;
+    letter-spacing:1px;margin-bottom:6px;}
+  .hl-f{color:var(--orange);font-weight:700;}
+  .hl-tau{color:var(--violet);font-weight:700;}
+  .eq .note{font-size:11px;color:var(--muted);margin-top:8px;line-height:1.5}
+  .frac{display:inline-flex;flex-direction:column;text-align:center;
+    vertical-align:middle;margin:0 3px;}
+  .frac .num{border-bottom:1px solid var(--muted);padding:0 6px 1px;}
+  .frac .den{padding:1px 6px 0;}
+
+  .bar{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;
+    background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    padding:12px 16px;margin-bottom:16px;}
+  .grp{display:flex;align-items:center;gap:8px;}
+  .grp label{font-size:11.5px;color:var(--muted);white-space:nowrap}
+  .val{font-size:11.5px;color:var(--ink);min-width:38px;text-align:right}
+  button{background:var(--panel2);color:var(--ink);border:1px solid var(--line);
+    border-radius:7px;padding:7px 13px;font-size:12.5px;cursor:pointer;
+    transition:.12s;}
+  button:hover{border-color:var(--faint);background:#222c38}
+  button.primary{background:#1f3a63;border-color:#2f5591;color:#dbe8ff}
+  button.primary:hover{background:#254777}
+  button.hot{background:#4a2230;border-color:#7a3547;color:#ffd7dd}
+  select,input[type=range]{accent-color:var(--blue)}
+  select{background:var(--panel2);color:var(--ink);border:1px solid var(--line);
+    border-radius:7px;padding:6px 8px;font-size:12.5px}
+  input[type=range]{width:104px}
+  .sep{width:1px;height:26px;background:var(--line)}
+
+  .grid{display:grid;grid-template-columns:1.15fr 1.35fr 1fr;gap:16px;}
+  @media(max-width:1180px){.grid{grid-template-columns:1fr 1fr}}
+  @media(max-width:760px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:14px;display:flex;flex-direction:column;gap:8px;min-width:0}
+  .card h3{margin:0;font-size:12px;font-weight:600;letter-spacing:.4px;
+    color:var(--ink);display:flex;justify-content:space-between;align-items:baseline}
+  .card h3 .hint{font-size:10.5px;color:var(--faint);font-weight:400}
+  canvas{width:100%;display:block;border-radius:6px;height:auto}
+  /* pin heights so layout is deterministic (avoids aspect-ratio feedback via canvas.height) */
+  #cInput,#cOut{height:150px} #cTraces{height:210px}
+  #cNet{height:470px} #cTau,#cGate{height:200px}
+  .stack{display:flex;flex-direction:column;gap:16px;min-width:0}
+
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--muted);
+    margin-top:2px}
+  .legend .k{display:inline-flex;align-items:center;gap:5px}
+  .dot{width:10px;height:10px;border-radius:3px;display:inline-block}
+
+  /* inspector */
+  .insp{grid-column:1/-1}
+  .insp-grid{display:grid;grid-template-columns:1.1fr 1.4fr;gap:18px}
+  @media(max-width:760px){.insp-grid{grid-template-columns:1fr}}
+  table.kv{width:100%;border-collapse:collapse;font-size:12.5px}
+  table.kv td{padding:5px 8px;border-bottom:1px solid var(--line)}
+  table.kv td:first-child{color:var(--muted)}
+  table.kv td:last-child{text-align:right}
+  .calc{background:var(--panel2);border:1px solid var(--line);border-radius:8px;
+    padding:14px 16px;font-size:13px;line-height:2.0}
+  .calc .step{color:var(--muted);font-size:11px;margin-bottom:6px}
+  .pill{display:inline-block;padding:1px 7px;border-radius:6px;
+    background:#0e1520;border:1px solid var(--line)}
+  .selrow{font-size:11.5px;color:var(--muted);margin-bottom:6px}
+  b.n{color:var(--ink)}
+  .foot{color:var(--faint);font-size:11.5px;margin-top:22px;line-height:1.6;
+    border-top:1px solid var(--line);padding-top:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div>
+      <h1>Liquid Neural Network — Live Lab</h1>
+      <div class="sub">A Liquid Time-Constant (LTC) network running its ODE solver in your browser, one frame at a time. Every neuron re-tunes its own <span class="hl-tau">time constant</span> in response to the input — watch it happen live. Click any neuron to dissect its update.</div>
+    </div>
+    <div class="eq">
+      <div class="lbl">continuous dynamics (Hasani et&nbsp;al. 2021)</div>
+      <div class="row mono">dx/dt = −[ 1/<span class="hl-tau">τ</span> + <span class="hl-f">f(u,x)</span> ]·x + <span class="hl-f">f(u,x)</span>·A</div>
+      <div class="lbl" style="margin-top:12px">semi-implicit solver step (per sub-step h)</div>
+      <div class="row mono">x ←
+        <span class="frac"><span class="num">x + h·<span class="hl-f">f</span>·A</span><span class="den">1 + h·(1/<span class="hl-tau">τ</span> + <span class="hl-f">f</span>)</span></span>
+      </div>
+      <div class="note"><span class="hl-f">f(u,x)=σ(W[u,x]+b)</span> is a learned gate. Because it sits <i>inside the decay term</i>, the effective time constant <span class="hl-tau">τ_eff = 1/(1/τ + f)</span> shrinks when input is strong → the neuron speeds up. That input-dependence is the whole idea.</div>
+    </div>
+  </header>
+
+  <!-- control bar -->
+  <div class="bar">
+    <div class="grp">
+      <button id="play" class="primary">⏸ Pause</button>
+      <button id="step">Step ▸</button>
+      <button id="reset">↺ Reset</button>
+    </div>
+    <div class="sep"></div>
+    <div class="grp">
+      <label>Input</label>
+      <select id="wave">
+        <option value="sine">sine</option>
+        <option value="square">square</option>
+        <option value="pulses">pulse train</option>
+        <option value="noise">noise</option>
+        <option value="manual">manual (slider)</option>
+      </select>
+    </div>
+    <div class="grp"><label>amp</label><input type="range" id="amp" min="0" max="3" step="0.05" value="1.5"><span class="val" id="ampV">1.5</span></div>
+    <div class="grp"><label>freq</label><input type="range" id="freq" min="0.05" max="1.2" step="0.01" value="0.30"><span class="val" id="freqV">0.30</span></div>
+    <div class="grp" id="manwrap" style="display:none"><label>u</label><input type="range" id="manual" min="-3" max="3" step="0.05" value="0"><span class="val" id="manualV">0.0</span></div>
+    <button id="inject" class="hot">⚡ Inject pulse</button>
+    <div class="sep"></div>
+    <div class="grp"><label>base τ ×</label><input type="range" id="taumul" min="0.2" max="4" step="0.05" value="1"><span class="val" id="taumulV">1.0</span></div>
+    <div class="grp"><label>dt</label><input type="range" id="dt" min="0.005" max="0.08" step="0.005" value="0.03"><span class="val" id="dtV">0.030</span></div>
+    <div class="grp"><label>solver steps</label><input type="range" id="solver" min="1" max="8" step="1" value="4"><span class="val" id="solverV">4</span></div>
+    <div class="grp"><label>speed</label><input type="range" id="speed" min="0.2" max="3" step="0.1" value="1"><span class="val" id="speedV">1.0</span></div>
+    <div class="grp"><label>neurons</label><input type="range" id="ncount" min="4" max="24" step="1" value="12"><span class="val" id="ncountV">12</span></div>
+  </div>
+
+  <div class="grid">
+    <!-- left: signals -->
+    <div class="stack">
+      <div class="card">
+        <h3>Input&nbsp;u(t) <span class="hint">what the network sees</span></h3>
+        <canvas id="cInput" height="150"></canvas>
+      </div>
+      <div class="card">
+        <h3>Readout&nbsp;ŷ(t) <span class="hint">linear head over the state</span></h3>
+        <canvas id="cOut" height="150"></canvas>
+      </div>
+      <div class="card">
+        <h3>Hidden state x(t) <span class="hint">every neuron, scrolling</span></h3>
+        <canvas id="cTraces" height="210"></canvas>
+      </div>
+    </div>
+
+    <!-- center: network -->
+    <div class="card">
+      <h3>Network <span class="hint">click a neuron to inspect</span></h3>
+      <canvas id="cNet" height="470"></canvas>
+      <div class="legend">
+        <span class="k"><span class="dot" style="background:var(--blue)"></span>state −</span>
+        <span class="k"><span class="dot" style="background:#3a4658"></span>state 0</span>
+        <span class="k"><span class="dot" style="background:var(--orange)"></span>state +</span>
+        <span class="k"><span class="dot" style="background:var(--violet);border-radius:50%"></span>ring = τ_eff (thick+bright = slow)</span>
+      </div>
+    </div>
+
+    <!-- right: bars -->
+    <div class="stack">
+      <div class="card">
+        <h3>τ_eff per neuron <span class="hint">the “liquid” quantity, live</span></h3>
+        <canvas id="cTau" height="200"></canvas>
+        <div class="legend"><span class="k">short bar = fast reflex · long bar = slow memory</span></div>
+      </div>
+      <div class="card">
+        <h3>Gate f(u,x) per neuron <span class="hint">conductance = σ(·) ∈ (0,1)</span></h3>
+        <canvas id="cGate" height="200"></canvas>
+      </div>
+    </div>
+
+    <!-- inspector -->
+    <div class="card insp">
+      <h3>Neuron inspector <span class="hint">the update equation with live numbers</span></h3>
+      <div class="selrow">Inspecting <b class="n" id="selName">neuron #0</b> — click any node in the Network panel to switch.</div>
+      <div class="insp-grid">
+        <table class="kv mono" id="kv">
+          <tr><td>input u</td><td id="k_u">–</td></tr>
+          <tr><td>current state x</td><td id="k_x">–</td></tr>
+          <tr><td>gate f(u,x) = σ(W·[u,x]+b)</td><td id="k_f" style="color:var(--orange)">–</td></tr>
+          <tr><td>base τ</td><td id="k_tau">–</td></tr>
+          <tr><td>rest target A</td><td id="k_A">–</td></tr>
+          <tr><td>effective τ_eff = 1/(1/τ + f)</td><td id="k_taue" style="color:var(--violet)">–</td></tr>
+        </table>
+        <div class="calc mono">
+          <div class="step">one solver sub-step, h = dt / steps = <span id="c_h">–</span></div>
+          x ← <span class="frac"><span class="num">x + h·f·A</span><span class="den">1 + h·(1/τ + f)</span></span>
+          = <span class="frac"><span class="num" id="c_num">–</span><span class="den" id="c_den">–</span></span>
+          = <span class="pill" id="c_res" style="color:var(--blue)">–</span>
+          <div class="step" style="margin-top:14px">interpretation</div>
+          <div id="c_interp" style="font-family:inherit;font-size:12.5px;color:var(--muted);line-height:1.6">–</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <b>What you're looking at:</b> a real LTC forward pass — no pre-baked animation. Each frame integrates the ODE by <span class="mono">solver steps</span> semi-implicit Euler sub-steps over interval <span class="mono">dt</span>. Weights are random (seeded), so this net isn't trained on a task — the point is the <i>mechanism</i>: crank <b>amp</b> up or hit <b>Inject pulse</b> and watch the τ_eff bars collapse (neurons speeding up); raise <b>base τ ×</b> to make the whole net sluggish; drop <b>solver steps</b> to 1 with a big <b>dt</b> to see the integrator get coarse. Companion trained model + benchmark: <span class="mono">liquid_demo.py</span> in this folder.
+  </div>
+</div>
+
+<script>
+"use strict";
+// ---------- deterministic RNG so the net is reproducible ----------
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+const sigmoid=z=>1/(1+Math.exp(-z));
+const clamp=(v,a,b)=>v<a?a:v>b?b:v;
+
+// ---------- LTC network ----------
+class LTC{
+  constructor(N){
+    this.N=N; this.build();
+  }
+  build(){
+    const N=this.N, rnd=mulberry32(1234+N);
+    const g=()=>rnd()*2-1;
+    // gate weights: input col strong so input clearly drives f; recurrence gentle
+    this.Wu=new Float64Array(N);            // weight on input u
+    this.Wr=Array.from({length:N},()=>new Float64Array(N)); // recurrent
+    this.bg=new Float64Array(N);
+    this.baseLogTau=new Float64Array(N);    // ln(tau) template
+    this.A=new Float64Array(N);
+    this.ro=new Float64Array(N); this.rob=g()*0.3; // readout
+    for(let i=0;i<N;i++){
+      this.Wu[i]=1.4+g()*0.8;
+      for(let j=0;j<N;j++) this.Wr[i][j]=(i===j?0:g()*0.5);
+      this.bg[i]=g()*1.2-0.6;
+      // base tau spread: fast reflex neurons -> slow memory neurons (0.25 .. 3.5 s)
+      const frac=i/(N-1||1);
+      this.baseLogTau[i]=Math.log(0.25*Math.pow(14,frac));
+      this.A[i]=g()*0.9;
+      this.ro[i]=g()*0.9;
+    }
+    this.x=new Float64Array(N);
+    this.f=new Float64Array(N);
+    this.taue=new Float64Array(N);
+    this.taumul=1;
+    this.recompute(0);
+  }
+  logTau(i){return this.baseLogTau[i]+Math.log(this.taumul);}
+  gate(i,u){
+    let z=this.bg[i]+this.Wu[i]*u; const Wr=this.Wr[i], x=this.x;
+    for(let j=0;j<this.N;j++) z+=Wr[j]*x[j];
+    return sigmoid(z);
+  }
+  recompute(u){ // refresh f and tau_eff for display without advancing
+    for(let i=0;i<this.N;i++){
+      this.f[i]=this.gate(i,u);
+      const tau=Math.exp(this.logTau(i));
+      this.taue[i]=1/(1/tau+this.f[i]);
+    }
+  }
+  step(u,dt,steps){
+    const h=dt/steps;
+    for(let s=0;s<steps;s++){
+      // compute all gates from current x, then update (parallel)
+      for(let i=0;i<this.N;i++) this.f[i]=this.gate(i,u);
+      for(let i=0;i<this.N;i++){
+        const tau=Math.exp(this.logTau(i)), f=this.f[i];
+        this.x[i]=(this.x[i]+h*f*this.A[i])/(1+h*(1/tau+f));
+      }
+    }
+    for(let i=0;i<this.N;i++){
+      const tau=Math.exp(this.logTau(i));
+      this.taue[i]=1/(1/tau+this.f[i]);
+    }
+  }
+  readout(){let y=this.rob;for(let i=0;i<this.N;i++)y+=this.ro[i]*this.x[i];return y;}
+}
+
+// ---------- canvas helpers (retina) ----------
+function setup(cv){
+  const dpr=window.devicePixelRatio||1;
+  const cssW=cv.clientWidth, cssH=cv.clientHeight;
+  cv.width=cssW*dpr; cv.height=cssH*dpr;
+  const ctx=cv.getContext("2d"); ctx.setTransform(dpr,0,0,dpr,0,0);
+  cv.__w=cssW; cv.__h=cssH; return ctx;
+}
+const CSS=getComputedStyle(document.documentElement);
+const col=n=>CSS.getPropertyValue(n).trim();
+// diverging state color: blue(neg) -> slate(0) -> orange(pos)
+function stateColor(v){
+  const t=clamp(v/1.6,-1,1);
+  const mid=[58,70,88];
+  const neg=[79,140,255], pos=[255,138,61];
+  const e=t<0?neg:pos, a=Math.abs(t);
+  const r=Math.round(mid[0]+(e[0]-mid[0])*a),
+        g=Math.round(mid[1]+(e[1]-mid[1])*a),
+        b=Math.round(mid[2]+(e[2]-mid[2])*a);
+  return `rgb(${r},${g},${b})`;
+}
+
+// ---------- rolling history ----------
+const HIST=260;
+let hInput=[], hOut=[], hX=[]; // hX: array over time of Float64Array snapshots
+
+// ---------- state ----------
+let net=new LTC(12);
+let t=0, playing=true, sel=0, curU=0;
+let pulseT=-999;
+
+// ---------- controls ----------
+const $=id=>document.getElementById(id);
+const ui={
+  play:$("play"),step:$("step"),reset:$("reset"),wave:$("wave"),
+  amp:$("amp"),freq:$("freq"),manual:$("manual"),manwrap:$("manwrap"),
+  inject:$("inject"),taumul:$("taumul"),dt:$("dt"),solver:$("solver"),
+  speed:$("speed"),ncount:$("ncount"),
+};
+function bindVal(id){const el=$(id),out=$(id+"V");if(!out)return;const f=()=>{
+  let v=parseFloat(el.value);
+  out.textContent=(id==="dt")?v.toFixed(3):(id==="solver"||id==="ncount")?v:(v.toFixed( id==="freq"?2:1));
+};el.addEventListener("input",f);f();}
+["amp","freq","manual","taumul","dt","solver","speed","ncount"].forEach(bindVal);
+
+ui.play.onclick=()=>{playing=!playing;ui.play.textContent=playing?"⏸ Pause":"▶ Play";ui.play.classList.toggle("primary",playing);};
+ui.step.onclick=()=>{advance(true);};
+ui.reset.onclick=()=>{net.x.fill(0);t=0;hInput=[];hOut=[];hX=[];pulseT=-999;};
+ui.inject.onclick=()=>{pulseT=t;};
+ui.wave.onchange=()=>{ui.manwrap.style.display=ui.wave.value==="manual"?"flex":"none";};
+ui.ncount.addEventListener("change",()=>{
+  const N=parseInt(ui.ncount.value); net=new LTC(N); net.taumul=parseFloat(ui.taumul.value);
+  sel=Math.min(sel,N-1); net.x.fill(0); hX=[];
+});
+ui.taumul.addEventListener("input",()=>{net.taumul=parseFloat(ui.taumul.value);});
+
+// ---------- input signal ----------
+function inputAt(time){
+  const amp=parseFloat(ui.amp.value), fr=parseFloat(ui.freq.value);
+  let u=0; const w=ui.wave.value;
+  if(w==="sine") u=amp*Math.sin(2*Math.PI*fr*time);
+  else if(w==="square") u=amp*(Math.sin(2*Math.PI*fr*time)>=0?1:-1);
+  else if(w==="pulses") u=amp*(((time*fr)%1)<0.12?1:0);
+  else if(w==="noise") u=amp*(Math.sin(time*11.3)*0.4+Math.sin(time*3.1+1)*0.3+(Math.random()-0.5)*0.6);
+  else if(w==="manual") u=parseFloat(ui.manual.value);
+  // additive injected pulse (exp-decaying bump)
+  const dtp=time-pulseT;
+  if(dtp>=0&&dtp<1.2) u+=2.6*Math.exp(-dtp*3.2);
+  return u;
+}
+
+// ---------- simulation advance ----------
+function advance(force){
+  if(!playing&&!force) return;
+  const dt=parseFloat(ui.dt.value), steps=parseInt(ui.solver.value);
+  curU=inputAt(t);
+  net.step(curU,dt,steps);
+  t+=dt;
+  hInput.push(curU); if(hInput.length>HIST)hInput.shift();
+  hOut.push(net.readout()); if(hOut.length>HIST)hOut.shift();
+  hX.push(Float64Array.from(net.x)); if(hX.length>HIST)hX.shift();
+}
+
+// ---------- drawing ----------
+function axisY(ctx,w,h,lo,hi){
+  ctx.strokeStyle=col("--line");ctx.lineWidth=1;
+  const zero=h-(0-lo)/(hi-lo)*h;
+  if(0>lo&&0<hi){ctx.beginPath();ctx.moveTo(0,zero);ctx.lineTo(w,zero);ctx.stroke();}
+}
+function drawSignal(cv,data,color,lo,hi,fill){
+  const ctx=setup(cv),w=cv.__w,h=cv.__h;
+  ctx.clearRect(0,0,w,h);
+  // grid
+  ctx.strokeStyle="rgba(255,255,255,0.04)";ctx.lineWidth=1;
+  for(let gx=0;gx<w;gx+=w/6){ctx.beginPath();ctx.moveTo(gx,0);ctx.lineTo(gx,h);ctx.stroke();}
+  axisY(ctx,w,h,lo,hi);
+  if(data.length<2)return;
+  const X=i=>i/(HIST-1)*w, Y=v=>h-(clamp(v,lo,hi)-lo)/(hi-lo)*h;
+  const off=HIST-data.length;
+  if(fill){
+    ctx.beginPath();ctx.moveTo(X(off),Y(0));
+    for(let i=0;i<data.length;i++)ctx.lineTo(X(off+i),Y(data[i]));
+    ctx.lineTo(X(off+data.length-1),Y(0));ctx.closePath();
+    ctx.fillStyle=color+"22";ctx.fill();
+  }
+  ctx.beginPath();
+  for(let i=0;i<data.length;i++){const px=X(off+i),py=Y(data[i]);i?ctx.lineTo(px,py):ctx.moveTo(px,py);}
+  ctx.strokeStyle=color;ctx.lineWidth=2;ctx.lineJoin="round";ctx.stroke();
+  // head dot
+  const lx=X(HIST-1),ly=Y(data[data.length-1]);
+  ctx.fillStyle=color;ctx.beginPath();ctx.arc(lx,ly,3,0,7);ctx.fill();
+  // current value label
+  ctx.fillStyle=col("--muted");ctx.font="11px ui-monospace,monospace";
+  ctx.textAlign="right";ctx.fillText(data[data.length-1].toFixed(2),w-6,13);
+}
+
+function drawTraces(cv){
+  const ctx=setup(cv),w=cv.__w,h=cv.__h;
+  ctx.clearRect(0,0,w,h);
+  axisY(ctx,w,h,-1.6,1.6);
+  if(hX.length<2)return;
+  const N=net.N,off=HIST-hX.length;
+  const X=i=>i/(HIST-1)*w, Y=v=>h-(clamp(v,-1.6,1.6)+1.6)/3.2*h;
+  for(let n=0;n<N;n++){
+    ctx.beginPath();
+    for(let i=0;i<hX.length;i++){const px=X(off+i),py=Y(hX[i][n]);i?ctx.lineTo(px,py):ctx.moveTo(px,py);}
+    ctx.strokeStyle=(n===sel)?col("--blue"):"rgba(120,150,200,0.30)";
+    ctx.lineWidth=(n===sel)?2.2:1;ctx.stroke();
+  }
+  ctx.fillStyle=col("--faint");ctx.font="10px ui-monospace";ctx.textAlign="left";
+  ctx.fillText("selected neuron highlighted",6,13);
+}
+
+function drawBars(cv,vals,color,vmax,fmt){
+  const ctx=setup(cv),w=cv.__w,h=cv.__h;
+  ctx.clearRect(0,0,w,h);
+  const N=vals.length, pad=6, bw=(w-pad*2)/N*0.72, gap=(w-pad*2)/N;
+  for(let i=0;i<N;i++){
+    const v=vals[i], bh=clamp(v/vmax,0,1)*(h-22);
+    const x=pad+i*gap+(gap-bw)/2, y=h-18-bh;
+    ctx.fillStyle=(i===sel)?color:color+"88";
+    roundRect(ctx,x,y,bw,bh,3);ctx.fill();
+    if(i===sel){ctx.strokeStyle="#fff";ctx.lineWidth=1;roundRect(ctx,x,y,bw,bh,3);ctx.stroke();}
+  }
+  // selected value
+  ctx.fillStyle=col("--muted");ctx.font="11px ui-monospace";ctx.textAlign="right";
+  ctx.fillText("#"+sel+" = "+fmt(vals[sel]),w-6,13);
+}
+function roundRect(ctx,x,y,w,h,r){
+  r=Math.min(r,w/2,h/2);if(h<=0)h=0.5;
+  ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();
+}
+
+let netNodes=[]; // screen positions for click hit-testing
+function drawNet(cv){
+  const ctx=setup(cv),w=cv.__w,h=cv.__h;
+  ctx.clearRect(0,0,w,h);
+  const N=net.N, cx=w/2, cy=h/2, R=Math.min(w,h)/2-46;
+  netNodes=[];
+  // input hub at left
+  const ix=28, iy=cy;
+  // edges: input -> each neuron (weight = Wu), recurrent faint
+  const pos=[];
+  for(let i=0;i<N;i++){const ang=-Math.PI/2+i/N*2*Math.PI;pos.push([cx+R*Math.cos(ang),cy+R*Math.sin(ang)]);}
+  // recurrent edges (only strong ones, faint)
+  ctx.lineWidth=1;
+  for(let i=0;i<N;i++)for(let j=0;j<N;j++){
+    const wgt=net.Wr[i][j];if(Math.abs(wgt)<0.42)continue;
+    ctx.strokeStyle=`rgba(140,160,190,${clamp(Math.abs(wgt)*0.10,0,0.14)})`;
+    ctx.beginPath();ctx.moveTo(pos[j][0],pos[j][1]);ctx.lineTo(pos[i][0],pos[i][1]);ctx.stroke();
+  }
+  // input edges
+  for(let i=0;i<N;i++){
+    const act=clamp(Math.abs(curU)*net.Wu[i]*0.12,0,0.5);
+    ctx.strokeStyle=`rgba(255,138,61,${0.05+act})`;
+    ctx.lineWidth=0.6+act*3;
+    ctx.beginPath();ctx.moveTo(ix,iy);ctx.lineTo(pos[i][0],pos[i][1]);ctx.stroke();
+  }
+  // input node
+  ctx.fillStyle=stateColor(curU);ctx.beginPath();ctx.arc(ix,iy,12+Math.abs(curU)*3,0,7);ctx.fill();
+  ctx.fillStyle=col("--muted");ctx.font="10px ui-monospace";ctx.textAlign="center";
+  ctx.fillText("u",ix,iy+3);ctx.fillText("input",ix,iy+26);
+  // neurons
+  const taus=net.taue, tmax=Math.max(...taus,0.1);
+  for(let i=0;i<N;i++){
+    const [x,y]=pos[i];
+    const rad=12+Math.abs(net.x[i])*7;
+    netNodes.push({x,y,r:rad+8,i});
+    // tau_eff ring
+    const tfrac=taus[i]/tmax; // 0 fast .. 1 slow
+    ctx.strokeStyle=`rgba(185,140,255,${0.25+tfrac*0.65})`;
+    ctx.lineWidth=1.5+tfrac*5;
+    ctx.beginPath();ctx.arc(x,y,rad+7,0,7);ctx.stroke();
+    // body
+    ctx.fillStyle=stateColor(net.x[i]);
+    ctx.beginPath();ctx.arc(x,y,rad,0,7);ctx.fill();
+    if(i===sel){ctx.strokeStyle="#fff";ctx.lineWidth=2;ctx.beginPath();ctx.arc(x,y,rad+2,0,7);ctx.stroke();}
+    ctx.fillStyle="rgba(255,255,255,0.85)";ctx.font="10px ui-monospace";ctx.textAlign="center";
+    ctx.fillText(i,x,y+3);
+  }
+  // readout node at right
+  const ox=w-26;
+  const yv=net.readout();
+  ctx.fillStyle=col("--green");ctx.beginPath();ctx.arc(ox,cy,12+Math.abs(yv)*3,0,7);ctx.fill();
+  ctx.fillStyle=col("--muted");ctx.fillText("ŷ",ox,cy+3);ctx.fillText("out",ox,cy+26);
+  for(let i=0;i<N;i++){
+    const a=clamp(Math.abs(net.ro[i]*net.x[i])*0.3,0,0.4);
+    ctx.strokeStyle=`rgba(78,201,168,${0.04+a})`;ctx.lineWidth=0.5+a*3;
+    ctx.beginPath();ctx.moveTo(pos[i][0],pos[i][1]);ctx.lineTo(ox,cy);ctx.stroke();
+  }
+}
+
+$("cNet").addEventListener("click",e=>{
+  const cv=$("cNet"),r=cv.getBoundingClientRect();
+  const mx=e.clientX-r.left,my=e.clientY-r.top;
+  let best=-1,bd=1e9;
+  for(const n of netNodes){const d=(n.x-mx)**2+(n.y-my)**2;if(d<n.r*n.r&&d<bd){bd=d;best=n.i;}}
+  if(best>=0){sel=best;updateInspector();}
+});
+
+function updateInspector(){
+  const i=sel, dt=parseFloat(ui.dt.value), steps=parseInt(ui.solver.value), h=dt/steps;
+  const u=curU, x=net.x[i], f=net.f[i], tau=Math.exp(net.logTau(i)), A=net.A[i], taue=net.taue[i];
+  $("selName").textContent="neuron #"+i;
+  $("k_u").textContent=u.toFixed(3);
+  $("k_x").textContent=x.toFixed(3);
+  $("k_f").textContent=f.toFixed(3);
+  $("k_tau").textContent=tau.toFixed(3)+" s";
+  $("k_A").textContent=A.toFixed(3);
+  $("k_taue").textContent=taue.toFixed(3)+" s";
+  $("c_h").textContent=h.toFixed(4);
+  const num=x+h*f*A, den=1+h*(1/tau+f);
+  $("c_num").textContent=num.toFixed(4);
+  $("c_den").textContent=den.toFixed(4);
+  $("c_res").textContent=(num/den).toFixed(4);
+  const speedup=(tau/taue);
+  $("c_interp").innerHTML=
+    `Base τ is <b class="mono">${tau.toFixed(2)}s</b>, but the gate f=<b class="mono">${f.toFixed(2)}</b> pulls the effective `+
+    `time constant down to <b class="mono">${taue.toFixed(2)}s</b> — this neuron is currently reacting `+
+    `<b class="mono">${speedup.toFixed(1)}×</b> faster than its resting speed. `+
+    (f>0.6?"Strong gate → short memory, tracks the input tightly."
+          :f<0.25?"Weak gate → long memory, integrates slowly and ignores fast wiggles."
+          :"Mid gate → balances tracking vs. smoothing.");
+}
+
+// ---------- main loop ----------
+let acc=0,last=performance.now();
+function frame(now){
+  const real=(now-last)/1000;last=now;
+  const speed=parseFloat(ui.speed.value), dt=parseFloat(ui.dt.value);
+  acc+=real*speed;
+  let guard=0;
+  while(acc>=dt&&guard<12){advance(false);acc-=dt;guard++;}
+  if(!playing){net.recompute(curU);} // keep gates/tau live even when paused
+  drawSignal($("cInput"),hInput,col("--orange"),-3.2,3.2,true);
+  drawSignal($("cOut"),hOut,col("--green"),-2.5,2.5,true);
+  drawTraces($("cTraces"));
+  drawNet($("cNet"));
+  drawBars($("cTau"),net.taue,col("--violet"),Math.max(...net.taue,0.1)*1.05,v=>v.toFixed(2)+"s");
+  drawBars($("cGate"),net.f,col("--orange"),1,v=>v.toFixed(2));
+  updateInspector();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Liquid NN — Digit Recognizer</title>
+<style>
+  :root{
+    --bg:#0d1117;--panel:#151b24;--panel2:#1b232e;--line:#26303c;
+    --ink:#e6edf3;--muted:#8b98a9;--faint:#5b6675;
+    --blue:#4f8cff;--orange:#ff8a3d;--violet:#b98cff;--green:#4ec9a8;--hot:#ff5d6c;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;}
+  .mono{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace;}
+  .wrap{max-width:1200px;margin:0 auto;padding:18px 20px 50px;}
+  header{border-bottom:1px solid var(--line);padding-bottom:12px;margin-bottom:18px;}
+  h1{font-size:20px;margin:0;font-weight:650;}
+  .sub{color:var(--muted);font-size:12.5px;margin-top:5px;max-width:820px;line-height:1.55;}
+  .sub b{color:var(--ink);font-weight:600}
+  .badge{display:inline-block;font-size:11px;color:var(--green);border:1px solid #244a40;
+    background:#10201b;border-radius:20px;padding:2px 10px;margin-left:8px;vertical-align:middle}
+  .explainer-link{display:inline-block;margin-top:9px;font-size:12.5px;font-weight:600;
+    color:var(--blue);text-decoration:none;border-bottom:1px solid transparent;transition:.12s}
+  .explainer-link:hover{border-bottom-color:var(--blue)}
+
+  .grid{display:grid;grid-template-columns:320px 1fr 300px;gap:16px;align-items:start;}
+  @media(max-width:1080px){.grid{grid-template-columns:1fr 1fr}}
+  @media(max-width:720px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;}
+  .card h3{margin:0 0 10px;font-size:12px;font-weight:600;letter-spacing:.3px;
+    display:flex;justify-content:space-between;align-items:baseline}
+  .card h3 .hint{font-size:10.5px;color:var(--faint);font-weight:400}
+
+  #pad{width:290px;height:290px;background:#000;border-radius:8px;cursor:crosshair;
+    touch-action:none;display:block;border:1px solid var(--line)}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}
+  button{background:var(--panel2);color:var(--ink);border:1px solid var(--line);
+    border-radius:7px;padding:8px 13px;font-size:12.5px;cursor:pointer;transition:.12s}
+  button:hover{border-color:var(--faint);background:#222c38}
+  button.primary{background:#1f3a63;border-color:#2f5591;color:#dbe8ff}
+  button.primary:hover{background:#254777}
+  button.hot{background:#4a2230;border-color:#7a3547;color:#ffd7dd}
+  label.ctl{font-size:11.5px;color:var(--muted);display:flex;align-items:center;gap:7px}
+  input[type=range]{accent-color:var(--blue);width:90px}
+  input[type=checkbox]{accent-color:var(--blue)}
+
+  /* center — how-it-reads visualization */
+  .viztop{display:flex;gap:14px;align-items:flex-start}
+  .seebox{display:flex;flex-direction:column;gap:5px;align-items:center}
+  #seen{width:120px;height:120px;image-rendering:pixelated;background:#000;border-radius:6px;
+    border:1px solid var(--line)}
+  .cap{font-size:10.5px;color:var(--faint);text-align:center;max-width:230px;line-height:1.45}
+  .stepinfo{flex:1;min-width:150px}
+  .steplabel{font-size:12px;color:var(--muted);margin-bottom:6px}
+  .steplabel b{color:var(--blue);font-family:ui-monospace,monospace}
+  .vizblock{margin-top:14px}
+  .vizlabel{font-size:11px;color:var(--ink);font-weight:600;letter-spacing:.3px;
+    display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:6px}
+  .vizlabel span{font-size:10px;color:var(--faint);font-weight:400;text-align:right}
+  #heat{width:100%;aspect-ratio:256/28;image-rendering:pixelated;background:#0b0f14;
+    border-radius:6px;border:1px solid var(--line);display:block}
+  #tau{width:100%;height:22px;image-rendering:pixelated;background:#0b0f14;
+    border-radius:6px;border:1px solid var(--line);display:block}
+  #traj{width:100%;height:150px;background:#0b0f14;border-radius:6px;
+    border:1px solid var(--line);display:block}
+  .cap .lg{display:inline-block;padding:0 5px;border-radius:3px;font-size:9.5px;
+    color:#0d1117;font-weight:700;line-height:1.6}
+  .lg.blue{background:var(--blue)} .lg.orange{background:var(--orange)} .lg.violet{background:var(--violet)}
+
+  /* right: prediction */
+  .pred{display:flex;align-items:center;gap:16px;margin-bottom:6px}
+  .bigdigit{font-size:88px;line-height:1;font-weight:700;color:var(--blue);
+    width:110px;text-align:center;font-family:ui-monospace,monospace}
+  .bigdigit.low{color:var(--faint)}
+  .conf{font-size:12.5px;color:var(--muted)}
+  .conf .pct{font-size:22px;color:var(--ink);font-weight:600;display:block}
+  .bars{display:flex;flex-direction:column;gap:5px;margin-top:8px}
+  .brow{display:flex;align-items:center;gap:8px;font-size:12px}
+  .brow .d{width:14px;text-align:center;color:var(--muted);font-family:ui-monospace,monospace}
+  .brow .track{flex:1;height:16px;background:var(--panel2);border-radius:5px;overflow:hidden}
+  .brow .fill{display:block;height:100%;width:0;background:var(--blue);border-radius:5px;transition:width .05s linear}
+  .brow.win .fill{background:var(--blue)}
+  .brow .fill.dim{background:#3a4658}
+  .brow .p{width:38px;text-align:right;color:var(--muted);font-family:ui-monospace,monospace}
+  .foot{color:var(--faint);font-size:11.5px;margin-top:22px;border-top:1px solid var(--line);
+    padding-top:14px;line-height:1.6}
+  .foot code{color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Liquid Neural Network — Digit Recognizer <span class="badge" id="accBadge">98.7% test acc</span></h1>
+    <div class="sub">A real <b>Liquid Time-Constant network</b> (256 liquid neurons) trained on MNIST — running its ODE solver right here in your browser, no server. The catch that makes it a <i>liquid</i> net: it never sees the whole image. It <b>reads the digit one row at a time, top to bottom</b> — 28 timesteps — integrating its state down the image. Draw a digit and watch its belief resolve as the scan line descends.</div>
+    <a class="explainer-link" href="how_liquid_neurons_work.html">New to liquid neurons? Read the illustrated explainer&nbsp;→</a>
+  </header>
+
+  <div class="grid">
+    <!-- draw -->
+    <div class="card">
+      <h3>Draw a digit <span class="hint">0–9, big &amp; centered</span></h3>
+      <canvas id="pad" width="290" height="290"></canvas>
+      <div class="row">
+        <button id="clear" class="hot">✕ Clear</button>
+        <button id="recog" class="primary">▸ Recognize</button>
+      </div>
+      <div class="row">
+        <label class="ctl">brush <input type="range" id="brush" min="10" max="30" step="1" value="18"></label>
+        <label class="ctl"><input type="checkbox" id="autorun" checked> auto-recognize</label>
+      </div>
+      <div class="row">
+        <label class="ctl">scan speed <input type="range" id="speed" min="10" max="120" step="5" value="45"></label>
+      </div>
+      <div class="cap" style="margin-top:10px;text-align:left">Tip: draw large and roughly centered — the net was trained the MNIST way (digit normalized into a 20px box, mass-centered).</div>
+    </div>
+
+    <!-- how it reads: spatiotemporal state + liquid gates -->
+    <div class="card">
+      <h3>How it reads &amp; remembers <span class="hint">state integrated row by row</span></h3>
+      <div class="viztop">
+        <div class="seebox">
+          <canvas id="seen" width="28" height="28"></canvas>
+          <div class="cap">input · <span style="color:var(--hot)">red line</span> = row being read</div>
+        </div>
+        <div class="stepinfo">
+          <div class="steplabel">reading row <b id="curRow">–</b> / 28</div>
+          <div class="cap" style="text-align:left;max-width:none">The net never sees the whole image. It streams the 28 rows top-to-bottom, updating all 256 liquid neurons after each one — so its answer is built up over time, not read off at once.</div>
+        </div>
+      </div>
+
+      <div class="vizblock">
+        <div class="vizlabel">Hidden state over time <span>256 neurons&nbsp;▸&nbsp;&nbsp;·&nbsp;&nbsp;time&nbsp;↓</span></div>
+        <canvas id="heat" width="256" height="28"></canvas>
+        <div class="cap" style="text-align:left;max-width:none;margin-top:5px">Each stacked row is the 256-neuron state right after that image row is read (neurons sorted fast→slow). <span class="lg blue">blue −</span> <span class="lg orange">orange +</span>. Watch memory accumulate down the stack — that persistence is the recurrence.</div>
+      </div>
+
+      <div class="vizblock">
+        <div class="vizlabel">Liquid gates, right now <span>f = how fast each neuron reacts</span></div>
+        <canvas id="tau" width="256" height="1"></canvas>
+        <div class="cap" style="text-align:left;max-width:none;margin-top:5px"><span class="lg violet">bright</span> = gate open → short τ<sub>eff</sub> (neuron reacting fast) · dark = closed → long τ<sub>eff</sub> (holding memory). Each neuron re-tunes its own clock every row — this is the mechanism that makes the network <i>liquid</i>.</div>
+      </div>
+    </div>
+
+    <!-- prediction -->
+    <div class="card">
+      <h3>Prediction <span class="hint">evolves as it reads</span></h3>
+      <div class="pred">
+        <div class="bigdigit low" id="big">–</div>
+        <div class="conf">confidence<span class="pct" id="pct">—</span><span id="settle" style="font-size:11px"></span></div>
+      </div>
+      <div class="bars" id="bars"></div>
+      <div class="vizblock">
+        <div class="vizlabel">Belief over the scan <span>confidence vs. row read</span></div>
+        <canvas id="traj" width="560" height="150"></canvas>
+        <div class="cap" style="text-align:left;max-width:none;margin-top:5px">All 10 classes competing as rows arrive; the <span style="color:var(--blue)">winning digit</span> pulls ahead once its distinguishing strokes come into view.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">
+    This is genuinely the trained model, not a lookup: the weights (<code>Win 256×28</code>, <code>Wrec 256×256</code>, <code>readout 10×256</code>) are embedded and the same semi-implicit ODE solver from training runs per row — <code>h ← (h + h·f·A)/(1 + h·(1/τ + f))</code>, 4 sub-steps × 28 rows. Trained with <code>train_lnn_mnist.py</code> (row-sequential MNIST + on-device affine &amp; stroke-width augmentation for hand-drawn robustness). Because it reads sequentially, the prediction is often uncertain after the first few rows and sharpens as the digit's distinguishing strokes come into view — that temporal firming-up is the liquid network thinking.
+  </div>
+</div>
+
+<script>
+"use strict";
+(async () => {
+// ---- load the trained weights from an external file, then boot ----
+let W;
+try {
+  const r = await fetch("lnn_weights.json", {cache:"no-cache"});
+  if (!r.ok) throw new Error("HTTP "+r.status);
+  W = await r.json();
+} catch (e) {
+  console.error("weight load failed:", e);
+  const note = document.querySelector(".sub");
+  if (note) note.insertAdjacentHTML("beforeend",
+    '<div style="color:var(--hot);margin-top:8px">Could not load <code>lnn_weights.json</code> \u2014 serve this page over http (e.g. <code>python3 -m http.server</code>) instead of opening the file directly.</div>');
+  return;
+}
+const H=W.H, STEPS=W.steps, HSTEP=W.hstep, MEAN=W.mean, STD=W.std;
+const f32=a=>Float32Array.from(a);
+const Win=f32(W.Win), Winb=f32(W.Win_b), Wrec=f32(W.Wrec), Wrecb=f32(W.Wrec_b);
+const A=f32(W.A), Wout=f32(W.Wout), Woutb=f32(W.Wout_b);
+const invTau=Float32Array.from(W.log_tau,v=>Math.exp(-v));
+const sig=z=>1/(1+Math.exp(-z));
+// stable display order: fastest neurons (smallest base τ) first, so the
+// state heatmap and gate strip read as a fast→slow gradient instead of noise
+const ORDER=Array.from({length:H},(_,i)=>i).sort((a,b)=>invTau[b]-invTau[a]);
+
+// forward pass that records the readout after each of the 28 rows + hidden snapshots
+function forward(rows){                       // rows: Float32Array(28*28), normalized
+  const h=new Float32Array(H), gu=new Float32Array(H), fg=new Float32Array(H);
+  const probsPerT=[], hiddenPerT=[], gatePerT=[];
+  for(let t=0;t<28;t++){
+    const off=t*28;
+    for(let i=0;i<H;i++){                      // gu = Win·u + b   (input drive, constant over sub-steps)
+      let s=Winb[i], base=i*28;
+      for(let j=0;j<28;j++) s+=Win[base+j]*rows[off+j];
+      gu[i]=s;
+    }
+    for(let st=0;st<STEPS;st++){
+      for(let i=0;i<H;i++){                    // f = σ(gu + Wrec·h + b)
+        let s=gu[i]+Wrecb[i], base=i*H;
+        for(let k=0;k<H;k++) s+=Wrec[base+k]*h[k];
+        fg[i]=sig(s);
+      }
+      for(let i=0;i<H;i++)                     // semi-implicit ODE update
+        h[i]=(h[i]+HSTEP*fg[i]*A[i])/(1+HSTEP*(invTau[i]+fg[i]));
+    }
+    // readout at this timestep -> softmax
+    const logit=new Float32Array(10);
+    for(let c=0;c<10;c++){let s=Woutb[c],base=c*H;for(let i=0;i<H;i++)s+=Wout[base+i]*h[i];logit[c]=s;}
+    probsPerT.push(softmax(logit));
+    hiddenPerT.push(Float32Array.from(h));
+    gatePerT.push(Float32Array.from(fg));   // gate f at this row → drives τ_eff
+  }
+  return {probsPerT,hiddenPerT,gatePerT};
+}
+function softmax(v){let m=-1e9;for(const x of v)if(x>m)m=x;let s=0;const o=new Float32Array(v.length);
+  for(let i=0;i<v.length;i++){o[i]=Math.exp(v[i]-m);s+=o[i];}for(let i=0;i<v.length;i++)o[i]/=s;return o;}
+
+// ---- drawing pad ----
+const pad=document.getElementById("pad"), pctx=pad.getContext("2d");
+function clearPad(){pctx.fillStyle="#000";pctx.fillRect(0,0,pad.width,pad.height);}
+clearPad();
+let drawing=false,last=null;
+function pos(e){const r=pad.getBoundingClientRect();
+  const cx=(e.touches?e.touches[0].clientX:e.clientX)-r.left;
+  const cy=(e.touches?e.touches[0].clientY:e.clientY)-r.top;
+  return [cx*pad.width/r.width, cy*pad.height/r.height];}
+function stroke(a,b){pctx.strokeStyle="#fff";pctx.lineWidth=+brush.value;
+  pctx.lineCap="round";pctx.lineJoin="round";
+  pctx.beginPath();pctx.moveTo(a[0],a[1]);pctx.lineTo(b[0],b[1]);pctx.stroke();}
+function down(e){e.preventDefault();drawing=true;last=pos(e);stroke(last,last);}
+function move(e){if(!drawing)return;e.preventDefault();const p=pos(e);stroke(last,p);last=p;}
+function up(){if(!drawing)return;drawing=false;if(autorun.checked)recognize();}
+pad.addEventListener("pointerdown",down);pad.addEventListener("pointermove",move);
+window.addEventListener("pointerup",up);
+
+const brush=document.getElementById("brush"),autorun=document.getElementById("autorun"),
+      speed=document.getElementById("speed");
+document.getElementById("clear").onclick=()=>{clearPad();resetPred();};
+document.getElementById("recog").onclick=()=>recognize();
+
+// ---- preprocessing: mimic MNIST (20px box, center of mass) ----
+// Works from ANY source canvas so we can also feed jittered views for TTA.
+function gridFromSource(srcCanvas){
+  const W0=srcCanvas.width,H0=srcCanvas.height;
+  const sctx2=srcCanvas.getContext("2d");
+  const src=sctx2.getImageData(0,0,W0,H0).data;
+  let minx=W0,miny=H0,maxx=-1,maxy=-1;
+  for(let y=0;y<H0;y++)for(let x=0;x<W0;x++){
+    if(src[(y*W0+x)*4]>40){if(x<minx)minx=x;if(x>maxx)maxx=x;if(y<miny)miny=y;if(y>maxy)maxy=y;}
+  }
+  if(maxx<0) return null;                       // empty canvas
+  const bw=maxx-minx+1, bh=maxy-miny+1;
+  const scale=20/Math.max(bw,bh);
+  const w2=Math.max(1,Math.round(bw*scale)), h2=Math.max(1,Math.round(bh*scale));
+  // scale the bbox into a small canvas (bilinear, like MNIST anti-aliasing)
+  const tmp=document.createElement("canvas");tmp.width=w2;tmp.height=h2;
+  const tctx=tmp.getContext("2d");
+  tctx.drawImage(srcCanvas,minx,miny,bw,bh,0,0,w2,h2);
+  const td=tctx.getImageData(0,0,w2,h2).data;
+  // center of mass in tmp coords
+  let m=0,cx=0,cy=0;
+  for(let y=0;y<h2;y++)for(let x=0;x<w2;x++){const v=td[(y*w2+x)*4];m+=v;cx+=v*x;cy+=v*y;}
+  cx=m?cx/m:w2/2; cy=m?cy/m:h2/2;
+  // paste into 28×28 so COM lands at (14,14)
+  const fin=document.createElement("canvas");fin.width=28;fin.height=28;
+  const fctx=fin.getContext("2d");fctx.fillStyle="#000";fctx.fillRect(0,0,28,28);
+  fctx.drawImage(tmp,Math.round(14-cx),Math.round(14-cy));
+  const fd=fctx.getImageData(0,0,28,28).data;
+  const grid=new Float32Array(28*28), rows=new Float32Array(28*28);
+  for(let i=0;i<28*28;i++){const v=fd[i*4]/255;grid[i]=v;rows[i]=(v-MEAN)/STD;}
+  return {grid,rows};
+}
+function preprocess(){ return gridFromSource(pad); }
+
+// ---- test-time augmentation: average predictions over jittered views ----
+// One preprocessing can land a digit just wrong; averaging over small rotate/
+// scale/shift variants is far more robust and needs no retraining.
+const TTA_VIEWS=[               // [deg, scale, dx_px, dy_px] on the raw drawing
+  [0,1.00,0,0],
+  [-8,1.00,0,0],[8,1.00,0,0],[-4,1.00,0,0],[4,1.00,0,0],
+  [0,0.90,0,0],[0,1.10,0,0],
+  [0,1.00,-12,0],[0,1.00,12,0],[0,1.00,0,-12],[0,1.00,0,12],
+  [-6,1.05,8,0],[6,0.95,-8,0],
+];
+function jitterCanvas(deg,sc,dx,dy){
+  const c=document.createElement("canvas");c.width=pad.width;c.height=pad.height;
+  const x=c.getContext("2d"),cx=pad.width/2,cy=pad.height/2;
+  x.fillStyle="#000";x.fillRect(0,0,c.width,c.height);
+  x.translate(cx+dx,cy+dy);x.rotate(deg*Math.PI/180);x.scale(sc,sc);x.translate(-cx,-cy);
+  x.drawImage(pad,0,0);
+  return c;
+}
+function ttaFinalProbs(){
+  const acc=new Float32Array(10); let k=0;
+  for(const [d,s,dx,dy] of TTA_VIEWS){
+    const g=(d===0&&s===1&&dx===0&&dy===0)?preprocess():gridFromSource(jitterCanvas(d,s,dx,dy));
+    if(!g) continue;
+    const p=forward(g.rows).probsPerT[27];   // final-row softmax for this view
+    for(let i=0;i<10;i++) acc[i]+=p[i];
+    k++;
+  }
+  if(!k) return null;
+  for(let i=0;i<10;i++) acc[i]/=k;
+  return acc;
+}
+
+// ---- the "what it sees" canvas ----
+const seen=document.getElementById("seen"),sctx=seen.getContext("2d");
+function drawSeen(grid,scanRow){
+  const img=sctx.createImageData(28,28);
+  for(let i=0;i<28*28;i++){const v=Math.round(grid[i]*255);
+    img.data[i*4]=v;img.data[i*4+1]=v;img.data[i*4+2]=v;img.data[i*4+3]=255;}
+  sctx.putImageData(img,0,0);
+  if(scanRow>=0&&scanRow<28){                   // red scan line
+    sctx.fillStyle="rgba(255,93,108,0.85)";sctx.fillRect(0,scanRow,28,1);
+  }
+}
+
+// diverging state color: blue (−) ↔ dark slate (0) ↔ orange (+)
+function stateRGB(v){
+  v=Math.max(-1,Math.min(1,v/1.5));
+  if(v<0){const a=-v;return[58+(79-58)*a,70+(140-70)*a,88+(255-88)*a];}
+  const a=v;return[58+(255-58)*a,70+(138-70)*a,88+(61-88)*a];
+}
+
+// ---- hidden state over time: H neurons (x) × 28 rows read (y) ----
+const heat=document.getElementById("heat"),hctx=heat.getContext("2d");
+heat.width=H; heat.style.aspectRatio=H+"/28";   // size the canvas from the model, not a literal
+function drawHeat(hiddenPerT,uptoT){
+  const img=hctx.createImageData(H,28);
+  for(let t=0;t<28;t++){
+    const vec=(t<=uptoT)?hiddenPerT[t]:null;
+    for(let x=0;x<H;x++){
+      const p=(t*H+x)*4;
+      if(!vec){img.data[p]=17;img.data[p+1]=22;img.data[p+2]=30;img.data[p+3]=255;continue;}
+      const c=stateRGB(vec[ORDER[x]]);
+      img.data[p]=c[0];img.data[p+1]=c[1];img.data[p+2]=c[2];img.data[p+3]=255;
+    }
+  }
+  hctx.putImageData(img,0,0);
+  if(uptoT>=0&&uptoT<28){hctx.fillStyle="rgba(255,93,108,0.9)";hctx.fillRect(0,uptoT,H,1);}
+}
+
+// ---- liquid gates: per-neuron f (bright = short τ_eff = reacting fast) ----
+const tauc=document.getElementById("tau"),tcx=tauc.getContext("2d");
+tauc.width=H;                                   // size the strip from the model
+function drawTau(gateVec){
+  const img=tcx.createImageData(H,1);
+  for(let x=0;x<H;x++){
+    const f=gateVec?gateVec[ORDER[x]]:0,p=x*4;
+    img.data[p]=30+(185-30)*f;img.data[p+1]=36+(140-36)*f;img.data[p+2]=46+(255-46)*f;img.data[p+3]=255;
+  }
+  tcx.putImageData(img,0,0);
+}
+
+// ---- belief trajectory: 10 class probs vs. row read ----
+const traj=document.getElementById("traj"),jcx=traj.getContext("2d");
+let jdpr=1,lastTraj=null;
+function sizeTraj(){
+  jdpr=Math.min(devicePixelRatio||1,2);
+  const w=traj.clientWidth||280;
+  traj.width=w*jdpr;traj.height=150*jdpr;jcx.setTransform(jdpr,0,0,jdpr,0,0);
+}
+function drawTraj(probsPerT,uptoT){
+  lastTraj={probsPerT,uptoT};
+  const w=traj.clientWidth||280,h=150;
+  jcx.clearRect(0,0,w,h);
+  const padL=8,padR=8,padT=10,padB=16,pw=w-padL-padR,ph=h-padT-padB;
+  const X=t=>padL+(t/27)*pw,Y=v=>padT+(1-v)*ph;
+  jcx.strokeStyle="#26303c";jcx.lineWidth=1;
+  for(const v of [0,0.5,1]){jcx.beginPath();jcx.moveTo(padL,Y(v));jcx.lineTo(padL+pw,Y(v));jcx.stroke();}
+  let win=0;{const f=probsPerT[27];for(let d=1;d<10;d++)if(f[d]>f[win])win=d;}
+  for(let d=0;d<10;d++){
+    if(d===win)continue;
+    jcx.beginPath();
+    for(let t=0;t<=uptoT;t++){const y=Y(probsPerT[t][d]);t?jcx.lineTo(X(t),y):jcx.moveTo(X(t),y);}
+    jcx.strokeStyle="rgba(139,152,169,0.30)";jcx.lineWidth=1;jcx.stroke();
+  }
+  jcx.beginPath();                                // winner on top, bold
+  for(let t=0;t<=uptoT;t++){const y=Y(probsPerT[t][win]);t?jcx.lineTo(X(t),y):jcx.moveTo(X(t),y);}
+  jcx.strokeStyle="#4f8cff";jcx.lineWidth=2.4;jcx.lineJoin="round";jcx.stroke();
+  jcx.setLineDash([3,3]);jcx.strokeStyle="rgba(255,93,108,0.65)";
+  jcx.beginPath();jcx.moveTo(X(uptoT),padT);jcx.lineTo(X(uptoT),padT+ph);jcx.stroke();jcx.setLineDash([]);
+  jcx.fillStyle="#4f8cff";jcx.font="600 11px ui-monospace,monospace";jcx.textAlign="left";
+  jcx.fillText("digit "+win,padL+3,padT+9);
+  jcx.fillStyle="#5b6675";jcx.font="10px ui-monospace,monospace";jcx.textAlign="right";
+  jcx.fillText("row "+(uptoT+1),padL+pw,padT+9);
+}
+function clearTraj(){const w=traj.clientWidth||280;jcx.clearRect(0,0,w,150);lastTraj=null;}
+addEventListener("resize",()=>{sizeTraj();if(lastTraj)drawTraj(lastTraj.probsPerT,lastTraj.uptoT);});
+
+// ---- prediction bars ----
+const barsEl=document.getElementById("bars");
+const barEls=[];
+for(let d=0;d<10;d++){
+  const row=document.createElement("div");row.className="brow";
+  row.innerHTML=`<span class="d">${d}</span><span class="track"><span class="fill dim"></span></span><span class="p">0%</span>`;
+  barsEl.appendChild(row);
+  barEls.push({row,fill:row.querySelector(".fill"),p:row.querySelector(".p")});
+}
+function showProbs(probs){
+  let best=0;for(let d=1;d<10;d++)if(probs[d]>probs[best])best=d;
+  for(let d=0;d<10;d++){
+    const pc=Math.round(probs[d]*100);
+    barEls[d].fill.style.width=(probs[d]*100)+"%";
+    barEls[d].fill.classList.toggle("dim",d!==best);
+    barEls[d].row.classList.toggle("win",d===best);
+    barEls[d].p.textContent=pc+"%";
+  }
+  const big=document.getElementById("big"),pct=document.getElementById("pct");
+  big.textContent=best; big.classList.toggle("low",probs[best]<0.5);
+  pct.textContent=Math.round(probs[best]*100)+"%";
+  return best;
+}
+function resetPred(){
+  for(let d=0;d<10;d++){barEls[d].fill.style.width=0;barEls[d].p.textContent="0%";
+    barEls[d].fill.classList.add("dim");barEls[d].row.classList.remove("win");}
+  document.getElementById("big").textContent="–";
+  document.getElementById("big").classList.add("low");
+  document.getElementById("pct").textContent="—";
+  document.getElementById("curRow").textContent="–";
+  document.getElementById("settle").textContent="";
+  const g=new Float32Array(28*28);drawSeen(g,-1);drawHeat([],-1);drawTau(null);clearTraj();
+}
+
+// ---- run + animate the row-by-row scan ----
+let anim=null;
+function recognize(){
+  if(anim){cancelAnimationFrame(anim);anim=null;}
+  const pp=preprocess();
+  if(!pp){resetPred();return;}
+  const {probsPerT,hiddenPerT,gatePerT}=forward(pp.rows);
+  // find where the prediction "settles" (last time the argmax changes)
+  let finalD=0;{const f=probsPerT[27];for(let d=1;d<10;d++)if(f[d]>f[finalD])finalD=d;}
+  let settleRow=27;for(let t=27;t>=0;t--){let a=0;for(let d=1;d<10;d++)if(probsPerT[t][d]>probsPerT[t][a])a=d;if(a!==finalD){settleRow=t+1;break;}if(t===0)settleRow=0;}
+  const ms=+speed.value, t0=performance.now();
+  function frame(now){
+    let t=Math.floor((now-t0)/ms);
+    t=Math.max(0,Math.min(27,t));   // rAF timestamp can predate t0 → guard against t<0
+    drawSeen(pp.grid,t);
+    drawHeat(hiddenPerT,t);
+    drawTau(gatePerT[t]);
+    drawTraj(probsPerT,t);
+    showProbs(probsPerT[t]);
+    document.getElementById("curRow").textContent=(t+1);
+    if((now-t0)/ms<28){anim=requestAnimationFrame(frame);}
+    else{ // done — replace the single-pass answer with the TTA-averaged one
+      drawSeen(pp.grid,-1);
+      const tta=ttaFinalProbs();
+      if(tta) showProbs(tta);
+      const st=document.getElementById("settle");
+      st.textContent=" · averaged over "+TTA_VIEWS.length+" views";
+      anim=null;
+    }
+  }
+  anim=requestAnimationFrame(frame);
+}
+
+sizeTraj();
+resetPred();
+})();
+</script>
+</body>
+</html>

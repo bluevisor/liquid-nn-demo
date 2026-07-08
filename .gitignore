@@ -1,0 +1,14 @@
+# dataset download (re-fetched automatically on training)
+_mnist/
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# training logs
+*.log
+
+# os
+.DS_Store
